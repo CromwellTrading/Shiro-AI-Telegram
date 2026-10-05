@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shiro Synthesis Two · Admin</title>
+<style>
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#202124;background:#f6f7fb}body{margin:0}.wrap{max-width:1250px;margin:auto;padding:24px}.hero,.panel,.card{background:#fff;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.06)}.hero{padding:22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0}.card{padding:14px}.muted{color:#667085}.num{font-size:26px;font-weight:800}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tabs button,.action{border:0;border-radius:10px;padding:10px 13px;cursor:pointer;background:#252b35;color:#fff}.panel{display:none;padding:18px}.panel.active{display:block}input,select,textarea{width:100%;box-sizing:border-box;margin:5px 0 10px;padding:10px;border:1px solid #ddd;border-radius:9px}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{padding:9px;border-bottom:1px solid #eee;text-align:left;font-size:13px;vertical-align:top}code{background:#f0f1f4;padding:2px 5px;border-radius:5px}.ok{padding:10px;background:#eaf8ed;border-radius:8px;margin:10px 0}.err{padding:10px;background:#fff0f0;border-radius:8px;margin:10px 0}.pill{display:inline-block;padding:4px 8px;border-radius:99px;background:#eef2ff}.danger{background:#fee2e2}.success{background:#dcfce7}.warning{background:#fef3c7}@media(max-width:700px){.row{grid-template-columns:1fr}.wrap{padding:12px}table{display:block;overflow:auto;white-space:nowrap}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="hero">
+<h1>Shiro Synthesis Two 🫡</h1>
+<div class="muted">Panel administrativo: juegos, fuentes, ofertas, usuarios, cupones, tickets, pagos y estado ONLINE/OFFLINE.</div>
+<div id="msg"></div><div class="grid" id="overview"></div>
+<div><button class="action" onclick="setOnline(true)">🟢 Poner ONLINE</button> <button class="action" onclick="setOnline(false)">🔴 Poner OFFLINE</button></div>
+</div>
+<div class="tabs">
+<button onclick="tab('games')">🎮 Juegos</button><button onclick="tab('sources')">🔎 Fuentes</button><button onclick="tab('products')">🛒 Ofertas</button><button onclick="tab('users')">👤 Usuarios</button><button onclick="tab('coupons')">🎟️ Cupones</button><button onclick="tab('tickets')">🧾 Tickets</button><button onclick="tab('payments')">💳 Pagos</button>
+</div>
+
+<section id="games" class="panel active"><h2>Juegos</h2>
+<div class="row"><div><label>Nombre</label><input id="gname" placeholder="Mobile Legends"></div><div><label>Alias</label><input id="galias" placeholder="MLBB, ML"></div></div>
+<button class="action" onclick="addGame()">Añadir juego</button><div id="gamesList"></div></section>
+
+<section id="sources" class="panel"><h2>Fuentes</h2>
+<div class="row"><div><label>Juego</label><select id="sgame"></select></div><div><label>Tipo</label><select id="skind"><option value="rss">RSS</option><option value="api">API JSON</option><option value="web">Página web</option></select></div></div>
+<div class="row"><div><label>Nombre</label><input id="sname" placeholder="Garena oficial"></div><div><label>URL</label><input id="surl" placeholder="https://..."></div></div>
+<label>Pista para extractor IA</label><textarea id="shint" placeholder="Busca eventos, skins, colaboraciones y fechas confirmadas."></textarea>
+<button class="action" onclick="addSource()">Añadir fuente</button> <button class="action" onclick="discoverSources()">🔎 Descubrir fuentes</button><div id="sourcesList"></div></section>
+
+<section id="products" class="panel"><h2>Ofertas</h2>
+<div class="row"><div><label>Juego/servicio</label><input id="pgame" placeholder="Mobile Legends"></div><div><label>Nombre</label><input id="pname" placeholder="500 Diamonds"></div></div>
+<div class="row"><div><label>Precio</label><input id="pprice" type="number" step="0.01"></div><div><label>Moneda</label><input id="pcurrency" value="CUP"></div></div>
+<label>Descripción</label><textarea id="pdesc"></textarea><button class="action" onclick="addProduct()">Añadir oferta</button><div id="productsList"></div></section>
+
+<section id="users" class="panel"><h2>Usuarios</h2><button class="action" onclick="loadUsers()">Actualizar</button><div id="usersList"></div></section>
+<section id="coupons" class="panel"><h2>Cupones</h2><button class="action" onclick="loadCoupons()">Actualizar</button><div id="couponsList"></div></section>
+<section id="tickets" class="panel"><h2>Tickets</h2><button class="action" onclick="loadTickets()">Actualizar</button><div id="ticketsList"></div></section>
+<section id="payments" class="panel"><h2>Pagos recibidos</h2><button class="action" onclick="loadPayments()">Actualizar</button><div class="muted" style="margin-top:8px">Los pagos OFFLINE quedan retenidos. Los no asociados no se acreditan por sí solos.</div><div id="paymentsList"></div></section>
+</div>
+<script>
+const TOKEN='__ADMIN_TOKEN__';
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const api=(path,opt={})=>fetch(path+(path.includes('?')?'&':'?')+'token='+encodeURIComponent(TOKEN),{headers:{'Content-Type':'application/json'},...opt}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.detail||d.error||'Error');return d});
+function tab(id){document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');({games:loadGames,sources:loadSources,products:loadProducts,users:loadUsers,coupons:loadCoupons,tickets:loadTickets,payments:loadPayments}[id])()}
+function msg(s,err=false){document.getElementById('msg').innerHTML='<div class="'+(err?'err':'ok')+'">'+esc(s)+'</div>';setTimeout(()=>document.getElementById('msg').innerHTML='',3500)}
+async function loadOverview(){const d=await api('/api/admin/overview');document.getElementById('overview').innerHTML=Object.entries(d).map(([k,v])=>`<div class="card"><div class="muted">${esc(k)}</div><div class="num">${typeof v==='boolean'?(v?'🟢':'🔴'):esc(v)}</div></div>`).join('')}
+async function setOnline(on){try{const d=await api('/api/admin/settings',{method:'POST',body:JSON.stringify({service_online:on})});msg((on?'ONLINE':'OFFLINE')+' aplicado'+(d.processed!=null?' · procesados: '+d.processed:''));loadOverview();loadPayments();loadTickets()}catch(e){msg(e.message,true)}}
+async function loadGames(){const d=await api('/api/admin/games');document.getElementById('gamesList').innerHTML='<table><tr><th>ID</th><th>Juego</th><th>Alias</th><th>Auto</th><th>Alertas</th></tr>'+d.map(g=>`<tr><td>${g.id}</td><td>${esc(g.name)}</td><td>${esc(g.aliases||'')}</td><td>${g.auto_publish?'🟢':'⚪'}</td><td>${g.alert_subscribers?'🟢':'⚪'}</td></tr>`).join('')+'</table>';document.getElementById('sgame').innerHTML='<option value="">(general)</option>'+d.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}
+async function addGame(){try{await api('/api/admin/games',{method:'POST',body:JSON.stringify({name:gname.value,aliases:galias.value})});gname.value='';galias.value='';msg('Juego añadido');loadGames();loadOverview()}catch(e){msg(e.message,true)}}
+async function discoverSources(){try{if(!sgame.value){throw Error('Selecciona un juego primero.')}const name=sgame.selectedOptions[0].text;const d=await api('/api/admin/discover_sources',{method:'POST',body:JSON.stringify({game:name})});const rows=d.sources||[];document.getElementById('sourcesList').innerHTML='<h3>Fuentes candidatas</h3><table><tr><th>Nombre</th><th>Tipo</th><th>URL</th><th>Motivo</th></tr>'+rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.kind)}</td><td><code>${esc(x.url)}</code></td><td>${esc(x.reason)}</td></tr>`).join('')+'</table><div class="muted">Revisa y añade las que realmente quieras activar.</div>';msg('Búsqueda completada')}catch(e){msg(e.message,true)}}
+async function loadSources(){const d=await api('/api/admin/sources');document.getElementById('sourcesList').innerHTML='<table><tr><th>ID</th><th>Juego</th><th>Tipo</th><th>Fuente</th><th>Última revisión</th></tr>'+d.map(s=>`<tr><td>${s.id}</td><td>${s.game_id??'-'}</td><td>${esc(s.kind)}</td><td><code>${esc(s.url)}</code></td><td>${s.last_checked||'-'}</td></tr>`).join('')+'</table>';loadGames()}
+async function addSource(){try{await api('/api/admin/sources',{method:'POST',body:JSON.stringify({game_id:sgame.value||null,kind:skind.value,name:sname.value,url:surl.value,prompt_hint:shint.value})});sname.value='';surl.value='';shint.value='';msg('Fuente añadida');loadSources();loadOverview()}catch(e){msg(e.message,true)}}
+async function loadProducts(){const d=await api('/api/admin/products');document.getElementById('productsList').innerHTML='<table><tr><th>ID</th><th>Juego</th><th>Oferta</th><th>Precio</th><th>Activa</th></tr>'+d.map(p=>`<tr><td>${p.id}</td><td>${esc(p.game)}</td><td>${esc(p.name)}</td><td>${p.price} ${esc(p.currency)}</td><td>${p.active?'🟢':'⚪'}</td></tr>`).join('')+'</table>'}
+async function addProduct(){try{await api('/api/admin/products',{method:'POST',body:JSON.stringify({game:pgame.value,name:pname.value,price:pprice.value,currency:pcurrency.value,description:pdesc.value})});msg('Oferta añadida');loadProducts();loadOverview()}catch(e){msg(e.message,true)}}
+async function loadUsers(){const d=await api('/api/admin/users');document.getElementById('usersList').innerHTML='<table><tr><th>ID</th><th>Usuario</th><th>Nivel</th><th>XP</th><th>★</th><th>Wallet</th><th>Blacklist</th></tr>'+d.map(u=>`<tr><td>${u.telegram_id}</td><td>${esc(u.username||u.full_name)}</td><td>${u.level}</td><td>${u.xp}</td><td>${u.stars}</td><td>${Number(u.wallet||0).toFixed(2)}</td><td>${u.blacklisted?'🚫':'—'}</td></tr>`).join('')+'</table>'}
+async function loadCoupons(){const d=await api('/api/admin/coupons');document.getElementById('couponsList').innerHTML='<table><tr><th>Código</th><th>User DB</th><th>Descuento</th><th>Hito</th><th>Usado</th><th>Expira</th></tr>'+d.map(c=>`<tr><td><code>${esc(c.code)}</code></td><td>${c.user_id}</td><td>${c.discount_percent}%</td><td>${c.milestone_stars??'—'}</td><td>${c.used?'Sí':'No'}</td><td>${c.expires_at||'—'}</td></tr>`).join('')+'</table>'}
+async function loadTickets(){const d=await api('/api/admin/tickets');document.getElementById('ticketsList').innerHTML='<table><tr><th>ID</th><th>User</th><th>Tipo</th><th>Producto/Orden</th><th>Teléfono</th><th>Importe</th><th>Estado</th><th>Referencia</th></tr>'+d.map(t=>`<tr><td>#${t.id}</td><td>${t.user_id}</td><td>${esc(t.kind)}</td><td>order ${t.order_id??'—'} / product ${t.product_id??'—'}</td><td><code>${esc(t.transfer_number)}</code></td><td>${t.amount} ${esc(t.currency)}</td><td>${esc(t.status)}</td><td>${esc(t.provider_reference||'—')}</td></tr>`).join('')+'</table>'}
+async function loadPayments(){const d=await api('/api/admin/payments');document.getElementById('paymentsList').innerHTML='<table><tr><th>ID</th><th>Fecha</th><th>Teléfono</th><th>Importe</th><th>Estado</th><th>Ticket</th><th>Referencia</th></tr>'+d.map(p=>`<tr><td>#${p.id}</td><td>${esc(p.received_at)}</td><td><code>${esc(p.transfer_number)}</code></td><td>${p.amount} ${esc(p.currency)}</td><td>${esc(p.status)}</td><td>${p.matched_ticket_id??'—'}</td><td><code>${esc(p.provider_reference||p.event_id)}</code></td></tr>`).join('')+'</table>'}
+loadOverview();loadGames();
+</script>
+</body></html>
